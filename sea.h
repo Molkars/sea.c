@@ -2,10 +2,13 @@
 #ifndef SEA_H
 #define SEA_H
 
+#include <sys/types.h>
+
 #define Arg(x) do { \
     void *___arg = (void *) x; \
     if (___arg == NULL) { \
-        printf("[%s %s:%ld] argument %s was null", __FUNCTION__, __FILE__, __LINE__, #x); \
+        printf("[%s %s:%ld] argument %s was null", \
+                __FUNCTION__, __FILE__, __LINE__, #x); \
         exit(1); \
     } \
 while (0);
@@ -26,16 +29,24 @@ typedef struct sea_tokens {
     const char *source;
 } sea_tokens;
 
-sea_tokens sea_tokenize(const char *source);
+void *sea_tokenize(const char *source, sea_tokens *out);
+
+int sea_token_is_word(const sea_token *token);
+int sea_token_is_int(const sea_token *token);
 
 /// AST:EXPR
+
+typedef struct sea_parser sea_parser;
 
 typedef struct sea_type_lit {
     sea_token *token;
 } sea_type_lit;
 
+int sea_parse_type_lit(sea_parser *parser, sea_type_lit *out);
+
 typedef enum sea_expr_type {
     SEA_EXPR_INT,
+    SEA_EXPR_SYM,
     SEA_EXPR_ADD,
     SEA_EXPR_SUB,
 } sea_expr_type;
@@ -44,6 +55,8 @@ typedef struct sea_expr {
     sea_expr_type type;
     void *item;
 } sea_expr;
+
+int sea_parse_expr(sea_parser *parser, sea_expr *out);
 
 typedef struct sea_bin_expr {
     sea_expr left;
@@ -67,6 +80,8 @@ typedef struct sea_stmt {
     sea_stmt_type type;
     void *item;
 } sea_stmt;
+
+int sea_parse_stmt(sea_parser *parser, sea_stmt *out);
 
 #define VECTOR_TYPE sea_stmt
 #define VECTOR_NAME sea_stmt
@@ -97,6 +112,8 @@ typedef struct sea_decl {
     sea_decl_type type;
     void *item;
 } sea_decl;
+
+int sea_parse_decl(sea_parser *parser, sea_decl *out);
 
 typedef struct sea_decl_extern {
     sea_decl_type type;

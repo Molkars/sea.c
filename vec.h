@@ -53,8 +53,8 @@ static __inline void VECTOR_APPEND(VECTOR vec, VECTOR_TYPE elt) {
   vec[0].arr[vec[0].size++] = elt;
 }
 
-static __inline VECTOR_TYPE VECTOR_GET(VECTOR vec, size_t i) {
-  return vec[0].arr[i];
+static __inline VECTOR_TYPE *VECTOR_GET(VECTOR vec, size_t i) {
+  return &vec[0].arr[i];
 }
 
 static __inline VECTOR_TYPE VECTOR_POP(VECTOR vec) {
