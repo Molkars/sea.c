@@ -15,19 +15,26 @@ while (0);
 
 typedef struct sea_token {
     size_t line, column, length, index;
-    const char *lex;
+    char *lex;
 } sea_token;
 
-#define VECTOR_TYPE sea_token
+void sea_token_free(sea_token *token);
+sea_token *sea_token_clone(sea_token *token);
+
+#define VECTOR_TYPE sea_token *
 #define VECTOR_NAME sea_token
+#define VECTOR_FREE sea_token_free
 #include "vec.h"
 
 /// TOKENZING
 
 typedef struct sea_tokens {
     vec_sea_token_t inner;
-    const char *source;
+    char *source;
 } sea_tokens;
+
+void sea_tokens_init(sea_tokens *tokens);
+void sea_tokens_free(sea_tokens *tokens);
 
 void *sea_tokenize(const char *source, sea_tokens *out);
 
@@ -36,7 +43,23 @@ int sea_token_is_int(const sea_token *token);
 
 /// AST:EXPR
 
-typedef struct sea_parser sea_parser;
+typedef struct sea_parser {
+    sea_tokens *tokens;
+    size_t index;
+} sea_parser;
+
+
+int sea_parser_init(sea_parser *parser, sea_tokens *tokens);
+
+int sea_parser_more(const sea_parser *parser);
+size_t sea_parser_line(const sea_parser *parser);
+size_t sea_parser_column(const sea_parser *parser);
+
+typedef struct sea_error_t {
+	char *message;
+	sea_token *token;
+	struct sea_error_t *parent;
+} sea_error_t;
 
 typedef struct sea_type_lit {
     sea_token *token;
@@ -49,6 +72,7 @@ typedef enum sea_expr_type {
     SEA_EXPR_SYM,
     SEA_EXPR_ADD,
     SEA_EXPR_SUB,
+	SEA_EXPR_ERROR,
 } sea_expr_type;
 
 typedef struct sea_expr {
@@ -56,12 +80,21 @@ typedef struct sea_expr {
     void *item;
 } sea_expr;
 
-int sea_parse_expr(sea_parser *parser, sea_expr *out);
+int sea_parse_expr(sea_parser *parser, sea_expr *expr);
+
+#define VECTOR_TYPE sea_expr 
+#define VECTOR_NAME sea_expr
+#include "vec.h"
 
 typedef struct sea_bin_expr {
     sea_expr left;
     sea_expr right;
 } sea_bin_expr;
+
+typedef struct sea_call_expr {
+	sea_token *name;
+	vec_sea_expr_t args;
+} sea_call_expr;
 
 /// AST:STMT
 
@@ -72,7 +105,7 @@ typedef enum sea_stmt_type {
     SEA_STMT_WHILE,
 
     // Psuedo-Statements
-    SEA_STMT_INVOKE,
+    SEA_STMT_CALL,
     SEA_STMT_ASSIGN,
 } sea_stmt_type;
 
@@ -102,10 +135,13 @@ typedef struct sea_func_param {
 #define VECTOR_NAME sea_func_param
 #include "vec.h"
 
+int sea_parse_func_param(sea_parser *parser, sea_func_param *out);
+
 typedef enum sea_decl_type {
     SEA_DECL_EXTERN,
     SEA_DECL_FUNC,
     SEA_DECL_GLOBAL,
+	SEA_DECL_ERROR,
 } sea_decl_type;
 
 typedef struct sea_decl {
@@ -116,7 +152,7 @@ typedef struct sea_decl {
 int sea_parse_decl(sea_parser *parser, sea_decl *out);
 
 typedef struct sea_decl_extern {
-    sea_decl_type type;
+    sea_type_lit type;
     sea_token *name;
     vec_sea_func_param_t params;
 } sea_decl_extern;
@@ -137,6 +173,8 @@ typedef struct sea_decl_function {
 typedef struct sea_program {
     vec_sea_decl_t decls;
 } sea_program;
+
+int sea_parse_program(sea_parser *parser, sea_program *out);
 
 #endif // SEA_H
 

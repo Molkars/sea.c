@@ -53,8 +53,8 @@ static __inline void VECTOR_APPEND(VECTOR vec, VECTOR_TYPE elt) {
   vec[0].arr[vec[0].size++] = elt;
 }
 
-static __inline VECTOR_TYPE *VECTOR_GET(VECTOR vec, size_t i) {
-  return &vec[0].arr[i];
+static __inline VECTOR_TYPE VECTOR_GET(VECTOR vec, size_t i) {
+  return vec[0].arr[i];
 }
 
 static __inline VECTOR_TYPE VECTOR_POP(VECTOR vec) {
@@ -75,11 +75,25 @@ static __inline size_t VECTOR_SIZE(VECTOR vec) {
   return vec[0].size;
 }
 
+static __inline void VECTOR_MAKE_STR(free)(VECTOR vec) {
+#ifdef VECTOR_FREE
+	for (size_t i = 0; i < VECTOR_SIZE(vec); i++) {
+		VECTOR_FREE(VECTOR_GET(vec, i));
+	}
+#endif
+	vec[0].alloc = 0;
+	vec[0].size = 0;
+	free(vec[0].arr);
+}
+
 #undef VECTOR_CONCAT
 #undef VECTOR_MAKE_STR1
 #undef VECTOR_MAKE_STR
 #undef VECTOR_NAME
 #undef VECTOR_TYPE
+#ifdef VECTOR_FREE
+#undef VECTOR_FREE
+#endif
 #undef VECTOR_STRUCT
 #undef VECTOR
 #undef VECTOR_INIT
