@@ -155,17 +155,59 @@ defer:
 }
 
 int repl_worker(char *line, void *args) {
+	sea_tokens tokens;
+	sea_tokens_init(&tokens);
+	sea_decl decl;
+	memset(&decl, 0, sizeof(sea_decl));
+	sea_stmt stmt;
+	memset(&stmt, 0, sizeof(sea_stmt));
+	sea_expr expr;
+	memset(&expr, 0, sizeof(sea_expr));
 	int out = -1;
+
+	printf("read line: %s\n", line);
 
 	if (streq(line, "exit") || streq(line, "quit")) defer_return(0);
 
-	if (strsw(line, "expr ")) {
-		sea_expr expr;
+	if (!sea_tokenize(line, &tokens)) {
+		printf("unable to tokenize: todo(errors)\n");
+		defer_return(-1);
+	}
 
+	sea_parser parser;
+	sea_parser_init(&parser, &tokens);
+	if (!sea_parse_decl(&parser, &decl)) {
+		if (decl.type == SEA_DECL_ERROR) {
+			sea_error_print((sea_error_t *) decl.item);
+			defer_return(-1);
+		}
+	} else {
+		printf("got decl!\n");
+		defer_return(-1);
+	}
+
+	sea_parser_init(&parser, &tokens);
+	if (!sea_parse_expr(&parser, &expr)) {
+		if (expr.type == SEA_EXPR_ERROR) {
+			sea_error_print((sea_error_t *) expr.item);	
+			defer_return(-1);
+		}
+	} else if (sea_parser_more(&parser)) {
+		sea_token *tok = sea_parser_peek(&parser);
+		printf("unable to parse entire expression\n"
+				"  current token is: %s\n"
+				"  at %lu:%lu\n",
+				tok->lex, tok->line, tok->column);
+	} else {
+		printf("got expr!\n");
+		defer_return(-1);
 	}
 
 defer:
 	free(line);
+	sea_decl_free(decl);
+	sea_stmt_free(stmt);
+	sea_expr_free(expr);
 	return out;
 }
 

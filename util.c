@@ -81,3 +81,11 @@ int simple_repl(FILE *stream, size_t cap, int callback(char *, void*), void *arg
 	return 0xFF04;
 #undef CAP
 }
+
+int strsw(const char *str, const char *prefix) {
+	if (!str || !prefix) return 0;
+	size_t slen = strlen(str);
+	size_t plen = strlen(prefix);
+
+	return plen <= slen && strncmp(str, prefix, plen) == 0;
+}

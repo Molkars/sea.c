@@ -10,4 +10,7 @@ char *readFile(const char *file);
 
 int simple_repl(FILE *stream, size_t cap, int callback(char *, void*), void *args);
 
+int strsw(const char *str, const char *prefix);
+
+
 #endif // SEA_IO_H

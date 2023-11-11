@@ -5,9 +5,14 @@
 #include <ctype.h>
 #include "util.h"
 
-void sea_token_free(sea_token *token) {
+void sea_token_free(sea_token token) {
+	free(token.lex);
+}
+
+void sea_token_free_ptr(sea_token *token) {
 	if (!token) return;
-	free(token->lex);
+	sea_token_free(*token);
+	free(token);
 }
 
 sea_token *sea_token_clone(sea_token *token) {
@@ -97,7 +102,8 @@ void *sea_tokenize(const char *source, sea_tokens *out) {
         if (c == '=' || c == '<' || c == '>' || c == '!') {
             src_takec(&src, '=');
         } else if (c == '(' || c == ')' || c == '{' || c == '}' || c == ';'
-                || c == '+' || c == '-' || c == '*' || c == '%' || c == ';') 
+                || c == '+' || c == '-' || c == '*' || c == '%' || c == ';'
+				|| c == ',') 
         {
             // no-op
         } else if (c == '/') {
@@ -295,17 +301,22 @@ int sea_parse_type_lit(sea_parser *parser, sea_type_lit *out) {
 	}
 }
 
+void sea_type_lit_free(sea_type_lit item) {
+	sea_token_free(*item.token);
+	free(item.token);
+}
+
 int sea_parse_func_param(sea_parser *parser, sea_func_param *out) {
 	if (!sea_parse_type_lit(parser, &out->type)) {
 		return 0;
 	}
 
-	if (!sea_parser_matchw(parser)) {
-		sea_parser_adv(parser);
-		return 0;
+	if (sea_parser_matchw(parser)) {
+		out->name = sea_token_clone(sea_parser_adv(parser));
+	} else {
+		out->name = NULL;
 	}
 
-	out->name = sea_token_clone(sea_parser_adv(parser));
 	return 1;
 }
 
@@ -322,6 +333,24 @@ sea_error_t *sea_parser_make_error(const char *msg, sea_token *token, sea_error_
 	return out;
 }
 
+void sea_error_print(sea_error_t *error) {
+	while (error) {
+		size_t line, col;
+		if (error->token) {
+			line = error->token->line;
+			col = error->token->column;
+		} else {
+			line = 1;
+			col = 0;
+		}
+		printf(
+				"> %s\n" 
+			   	">  at %lu:%lu\n", 
+				error->message, line, col);
+		error = error->parent;
+	}
+}
+
 
 int sea_parse_primary(sea_parser *parser, sea_expr *expr) {
 	if (!sea_parser_more(parser)) return 0;
@@ -335,30 +364,53 @@ int sea_parse_primary(sea_parser *parser, sea_expr *expr) {
 	}
 
 	if (sea_token_is_word(token)) {
-		expr->type = SEA_EXPR_SYM;
-		expr->item = sea_token_clone(token);
-		return 1;
+		if (!sea_token_match(parser, "(")) {
+			expr->type = SEA_EXPR_SYM;
+			expr->item = sea_token_clone(token);
+			return 1;
+		}
+		sea_parser_adv(parser);
+
+		sea_call_expr *call = malloc(sizeof(sea_call_expr));
+		call->name = sea_token_clone(token);
+		vec_sea_expr_init(call->args);
+		sea_expr arg;
+		while (sea_parser_more(parser) && !sea_parser_match(parser, ")")) {
+			if (!sea_parse_expr(parser, &arg)) {
+				if (arg.type == SEA_EXPR_ERROR && !sea_parser_match(parser, ",")) {
+					expr->type = SEA_EXPR_ERROR;
+
+				}
+			}
+
+			vec_sea_expr_append(call->args, arg);
+			if (!sea_parser_match(parser, ",")) {
+				break;
+			} else {
+				sea_parser_adv(parser);
+			}
+		}
+
+		expr->type = SEA_EXPR_CALL;
+		expr->item = call;
 	}
 
 	if (streq("(", token->lex)) {
 		if (!sea_parse_expr(parser, expr)) {
-			sea_error_t *error = sea_parser_make_error(
+			expr->type = SEA_EXPR_ERROR;
+			expr->item = sea_parser_make_error(
 					"Expected expression after group token: '('",
 					sea_token_clone(token),
 					expr->type == SEA_EXPR_ERROR ? (sea_error_t *) expr->item : NULL);
-
-			expr->type = SEA_EXPR_ERROR;
-			expr->item = error;
 			return 0;
 		}
 
 		if (!sea_parser_match(parser, ")")) {
-			sea_error_t *error = sea_parser_make_error(
+			expr->type = SEA_EXPR_ERROR;
+			expr->item = sea_parser_make_error(
 					"Expected ')' after grouped expression",
 					sea_token_clone(sea_parser_previous(parser)),
 					NULL);
-			expr->type = SEA_EXPR_ERROR;
-			expr->item = error;
 			return 0;
 		}
 
@@ -376,6 +428,7 @@ int sea_parse_expr(sea_parser *parser, sea_expr *expr) {
 
 int sea_parse_decl(sea_parser *parser, sea_decl *out) {
 	if (sea_parser_match(parser, "extern")) {
+		sea_parser_adv(parser);
 		sea_decl_extern item;
 
 		if (!sea_parse_type_lit(parser, &item.type)) {
@@ -396,6 +449,7 @@ int sea_parse_decl(sea_parser *parser, sea_decl *out) {
 			out->type = SEA_DECL_ERROR;
 			return 0;
 		}
+		sea_parser_adv(parser);
 
 		vec_sea_func_param_init(item.params);
 		sea_func_param param;
@@ -421,6 +475,30 @@ int sea_parse_decl(sea_parser *parser, sea_decl *out) {
 	}
 
 	return 0;
+}
+
+void sea_decl_free(sea_decl decl) {
+
+	if (decl.type == SEA_DECL_EXTERN) {
+		sea_decl_extern *item = (sea_decl_extern *) decl.item;
+		if (item) {
+			sea_type_lit_free(item->type);
+			sea_token_free(*item->name);
+			free(item->name);
+			vec_sea_func_param_free(item->params);
+			free(item);
+		}
+	} else {
+		printf("free: unimpl %s\n", __FUNCTION__);
+	}
+}
+
+void sea_stmt_free(sea_stmt stmt) {
+	// todo
+}
+
+void sea_expr_free(sea_expr expr) {
+	// todo
 }
 
 #undef SEA_ERROR

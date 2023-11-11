@@ -18,12 +18,14 @@ typedef struct sea_token {
     char *lex;
 } sea_token;
 
-void sea_token_free(sea_token *token);
+void sea_token_free(sea_token token);
 sea_token *sea_token_clone(sea_token *token);
+
+void sea_token_free_ptr(sea_token *token);
 
 #define VECTOR_TYPE sea_token *
 #define VECTOR_NAME sea_token
-#define VECTOR_FREE sea_token_free
+#define VECTOR_FREE sea_token_free_ptr
 #include "vec.h"
 
 /// TOKENZING
@@ -54,6 +56,7 @@ int sea_parser_init(sea_parser *parser, sea_tokens *tokens);
 int sea_parser_more(const sea_parser *parser);
 size_t sea_parser_line(const sea_parser *parser);
 size_t sea_parser_column(const sea_parser *parser);
+sea_token *sea_parser_peek(const sea_parser *parser);
 
 typedef struct sea_error_t {
 	char *message;
@@ -61,11 +64,14 @@ typedef struct sea_error_t {
 	struct sea_error_t *parent;
 } sea_error_t;
 
+void sea_error_print(sea_error_t *error);
+
 typedef struct sea_type_lit {
     sea_token *token;
 } sea_type_lit;
 
 int sea_parse_type_lit(sea_parser *parser, sea_type_lit *out);
+void sea_type_lit_free(sea_type_lit item);
 
 typedef enum sea_expr_type {
     SEA_EXPR_INT,
@@ -81,6 +87,7 @@ typedef struct sea_expr {
 } sea_expr;
 
 int sea_parse_expr(sea_parser *parser, sea_expr *expr);
+void sea_expr_free(sea_expr expr);
 
 #define VECTOR_TYPE sea_expr 
 #define VECTOR_NAME sea_expr
@@ -115,6 +122,7 @@ typedef struct sea_stmt {
 } sea_stmt;
 
 int sea_parse_stmt(sea_parser *parser, sea_stmt *out);
+void sea_stmt_free(sea_stmt stmt);
 
 #define VECTOR_TYPE sea_stmt
 #define VECTOR_NAME sea_stmt
@@ -149,8 +157,6 @@ typedef struct sea_decl {
     void *item;
 } sea_decl;
 
-int sea_parse_decl(sea_parser *parser, sea_decl *out);
-
 typedef struct sea_decl_extern {
     sea_type_lit type;
     sea_token *name;
@@ -163,6 +169,9 @@ typedef struct sea_decl_function {
     vec_sea_func_param_t params;
     sea_stmt body;
 } sea_decl_function;
+
+int sea_parse_decl(sea_parser *parser, sea_decl *out);
+void sea_decl_free(sea_decl decl);
 
 #define VECTOR_TYPE sea_decl
 #define VECTOR_NAME sea_decl
