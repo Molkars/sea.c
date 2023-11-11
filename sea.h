@@ -3,6 +3,7 @@
 #define SEA_H
 
 #include <sys/types.h>
+#include <stdio.h>
 
 #define Arg(x) do { \
     void *___arg = (void *) x; \
@@ -61,7 +62,6 @@ sea_token *sea_parser_peek(const sea_parser *parser);
 typedef struct sea_error_t {
 	char *message;
 	sea_token *token;
-	struct sea_error_t *parent;
 } sea_error_t;
 
 void sea_error_print(sea_error_t *error);
@@ -76,31 +76,51 @@ void sea_type_lit_free(sea_type_lit item);
 typedef enum sea_expr_type {
     SEA_EXPR_INT,
     SEA_EXPR_SYM,
+    SEA_EXPR_CALL,
+
+    SEA_EXPR_NOT,
+    SEA_EXPR_NEGATE,
+
+    SEA_EXPR_MUL,
+    SEA_EXPR_DIV,
+    SEA_EXPR_REM,
+
     SEA_EXPR_ADD,
     SEA_EXPR_SUB,
-	SEA_EXPR_ERROR,
+    
+    SEA_EXPR_LT,
+    SEA_EXPR_GT,
+    SEA_EXPR_LE,
+    SEA_EXPR_GE,
+
+    SEA_EXPR_EQ,
+    SEA_EXPR_NE,
+
+    SEA_EXPR_ASSIGN,
 } sea_expr_type;
 
 typedef struct sea_expr {
     sea_expr_type type;
     void *item;
+    sea_error_t *error;
 } sea_expr;
 
-int sea_parse_expr(sea_parser *parser, sea_expr *expr);
+sea_expr *sea_parse_expr(sea_parser *parser);
 void sea_expr_free(sea_expr expr);
+int sea_expr_display(FILE *fd, const sea_expr *expr);
 
-#define VECTOR_TYPE sea_expr 
-#define VECTOR_NAME sea_expr
+#define VECTOR_TYPE sea_expr *
+#define VECTOR_NAME sea_expr_ptr
 #include "vec.h"
 
 typedef struct sea_bin_expr {
-    sea_expr left;
-    sea_expr right;
+    sea_expr *left;
+    sea_expr *right;
 } sea_bin_expr;
 
 typedef struct sea_call_expr {
 	sea_token *name;
-	vec_sea_expr_t args;
+	vec_sea_expr_ptr_t args;
 } sea_call_expr;
 
 /// AST:STMT

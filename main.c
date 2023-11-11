@@ -11,7 +11,7 @@ void _usage(void) {
     printf("usage: seac [command] ...args\n");
     printf("command:\n");
     printf(" - tokenize <file-path>\n");
-    printf(" - compile <file-path>\n");
+    printf(" - parse <file-path>\n");
 	printf(" - repl\n");
 }
 
@@ -26,8 +26,7 @@ int main(int argc, char **argv) {
 
 	const char *command = argv[1];
 	CMD(tokenize)
-	CMD(compile)
-	CMD(repl);
+    CMD(repl);
 
 #undef CMD2
 #undef CMD
@@ -80,138 +79,52 @@ defer:
 	return out;
 }
 
-
-int compile(int argc, char **argv) {
-	char *src = NULL;
-	int out = 0;
-
-	if (argc != 3) {
-		printf("compile: expected <file-path>\n");
-		_usage();
-		defer_return(1);
-	}
-
-	char *filepath = argv[2];
-	printf("compile: compiling %s\n", filepath);
-
-
-defer:
-	free(src);
-	return out;
-}
-
-int testExpr(int argc, char **argv) {
-	char *src = NULL;
+int repl_worker(char *line, void *arg) {
+    (void) arg;
 	sea_tokens tokens;
 	sea_tokens_init(&tokens);
-	int out = 0;
+    int out = -1;
 
-	if (argc != 3) {
-		printf("test-expr: expected <file-path>\n");
-		_usage();
-		defer_return(1);
-	}
-
-	char *filepath = argv[2];
-	printf("test-expr: testing %s\n", filepath);
-
-	src = readFile(filepath);
-	if (!src) {
-		printf("tokenize: unable to read file: %s\n", filepath);
-		defer_return(1);
-	}
-
-	printf("== source ==\n");
-	printf("%s\n", src);
-
-	if (!sea_tokenize(src, &tokens)) {
-		printf("test-expr: unable to tokenize file\n");
-		defer_return(1);
-	}
-
-	sea_parser parser;
-	sea_parser_init(&parser, &tokens);
-	sea_expr expr;
-	vec_sea_expr_t exprs;
-	vec_sea_expr_init(exprs);
-
-	while (sea_parser_more(&parser)) {
-		if (!sea_parse_expr(&parser, &expr)) {
-			size_t line, col;
-			line = sea_parser_line(&parser);
-			col = sea_parser_column(&parser);
-
-			printf("test-expr: unable to parse expression at %lu:%lu\n", line, col);
-		}
-		vec_sea_expr_append(exprs, expr);
-	}
-	if (sea_parser_more(&parser)) {
-		printf("test-expr: incomplete expressions in file!!");
-	}
-defer:
-	free(src);
-	sea_tokens_free(&tokens);
-	return out;	
-}
-
-int repl_worker(char *line, void *args) {
-	sea_tokens tokens;
-	sea_tokens_init(&tokens);
-	sea_decl decl;
-	memset(&decl, 0, sizeof(sea_decl));
-	sea_stmt stmt;
-	memset(&stmt, 0, sizeof(sea_stmt));
-	sea_expr expr;
-	memset(&expr, 0, sizeof(sea_expr));
-	int out = -1;
-
-	printf("read line: %s\n", line);
-
-	if (streq(line, "exit") || streq(line, "quit")) defer_return(0);
+    if (streq(line, "exit")) {
+        defer_return(0);
+    }
 
 	if (!sea_tokenize(line, &tokens)) {
-		printf("unable to tokenize: todo(errors)\n");
+		printf("tokenize: unable to tokenize file\n");
 		defer_return(-1);
 	}
 
-	sea_parser parser;
-	sea_parser_init(&parser, &tokens);
-	if (!sea_parse_decl(&parser, &decl)) {
-		if (decl.type == SEA_DECL_ERROR) {
-			sea_error_print((sea_error_t *) decl.item);
-			defer_return(-1);
-		}
-	} else {
-		printf("got decl!\n");
-		defer_return(-1);
-	}
+    sea_parser parser;
+    sea_parser_init(&parser, &tokens);
 
-	sea_parser_init(&parser, &tokens);
-	if (!sea_parse_expr(&parser, &expr)) {
-		if (expr.type == SEA_EXPR_ERROR) {
-			sea_error_print((sea_error_t *) expr.item);	
-			defer_return(-1);
-		}
-	} else if (sea_parser_more(&parser)) {
-		sea_token *tok = sea_parser_peek(&parser);
-		printf("unable to parse entire expression\n"
-				"  current token is: %s\n"
-				"  at %lu:%lu\n",
-				tok->lex, tok->line, tok->column);
-	} else {
-		printf("got expr!\n");
-		defer_return(-1);
-	}
+    sea_expr *expr = sea_parse_expr(&parser);
+    if (!expr) {
+        printf("no expression to parse!\n");
+        defer_return(-1);
+    }
+
+    if (sea_parser_more(&parser)) {
+        printf( "unable to parse entire expression!\n"
+                "  current token: '%s'\n"
+                "  at %lu:%lu\n",
+                sea_parser_peek(&parser)->lex,
+                sea_parser_line(&parser), sea_parser_column(&parser));
+        defer_return(-1);
+    }
+
+    sea_expr_display(stdout, expr);
+    fprintf(stdout, "\n");
 
 defer:
-	free(line);
-	sea_decl_free(decl);
-	sea_stmt_free(stmt);
-	sea_expr_free(expr);
-	return out;
+    free(line);
+    sea_tokens_free(&tokens);
+    return out;
 }
 
-int repl(int _argc, char **_argv) {
+int repl(int argc, char **argv) {
+    (void) argc;
+    (void) argv;
+
 	return simple_repl(stdin, 1024, repl_worker, NULL);
 }
 
