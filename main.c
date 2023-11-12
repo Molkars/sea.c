@@ -79,10 +79,17 @@ defer:
 	return out;
 }
 
+void stmt_visit_err(sea_stmt *stmt, sea_error_t *error) {
+
+}
+
+
 int repl_worker(char *line, void *arg) {
     (void) arg;
 	sea_tokens tokens;
 	sea_tokens_init(&tokens);
+    sea_stmt *stmt = NULL;
+    sea_expr *expr = NULL;
     int out = -1;
 
     if (streq(line, "exit")) {
@@ -95,29 +102,45 @@ int repl_worker(char *line, void *arg) {
 	}
 
     sea_parser parser;
+    
     sea_parser_init(&parser, &tokens);
+    stmt = sea_parse_stmt(&parser);
 
-    sea_expr *expr = sea_parse_expr(&parser);
-    if (!expr) {
-        printf("no expression to parse!\n");
+    if (stmt) {
+        if (sea_stmt_visit_error(stmt, stmt_visit_err)) {
+            defer_return(-1);
+        }
+
         defer_return(-1);
     }
 
-    if (sea_parser_more(&parser)) {
-        printf( "unable to parse entire expression!\n"
-                "  current token: '%s'\n"
-                "  at %lu:%lu\n",
-                sea_parser_peek(&parser)->lex,
-                sea_parser_line(&parser), sea_parser_column(&parser));
+    sea_parser_init(&parser, &tokens);
+    expr = sea_parse_expr(&parser);
+    if (expr) {
+        if (sea_parser_more(&parser)) {
+            printf( "  unable to parse entire expression!\n"
+                    "    current token: '%s'\n"
+                    "    at %lu:%lu\n",
+                    sea_parser_peek(&parser)->lex,
+                    sea_parser_line(&parser), sea_parser_column(&parser));
+
+            defer_return(-1);
+        }
+
+        printf("  ");
+        sea_expr_display(stdout, expr);
+        printf("\n");
         defer_return(-1);
     }
 
-    sea_expr_display(stdout, expr);
-    fprintf(stdout, "\n");
+    printf("  unable to parse anything\n");
+    defer_return(-1);
 
 defer:
     free(line);
     sea_tokens_free(&tokens);
+    sea_stmt_free(stmt);
+    sea_expr_free(expr);
     return out;
 }
 
