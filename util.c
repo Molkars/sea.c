@@ -43,7 +43,9 @@ int simple_repl(FILE *stream, size_t cap, int callback(char *, void*), void *arg
 	size_t line_len = 0;
 	size_t line_cap = cap;
 	char *line = calloc(line_cap, sizeof(char));
-
+    
+    printf(" ::> ");
+    fflush(stdout);
 	while (fgets(buffer, cap, stdin) != NULL) {
 		size_t i = strcspn(buffer, nl);
 
@@ -75,6 +77,8 @@ int simple_repl(FILE *stream, size_t cap, int callback(char *, void*), void *arg
 			line_len = 0;
 			line_cap = cap;
 			line = calloc(line_cap, sizeof(char));
+            printf(" ::> ");
+            fflush(stdout);
 		}
 	}
 

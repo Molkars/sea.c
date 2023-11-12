@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "sea.h"
 #include "util.h"
+#include <malloc.h>
 
 #define defer_return(value) do { out = value; goto defer; } while (0);
 
@@ -79,10 +80,26 @@ defer:
 	return out;
 }
 
-void stmt_visit_err(sea_stmt *stmt, sea_error_t *error) {
-
+void display_error(const char *line, sea_error_t *error) {
+    sea_token *start = error->start;
+    sea_token *end = error->end;
+    if (!start || !end) {
+        printf("error has neither start or end tokens!\n");
+        return;
+    }
+    printf(" |  %s\n", line);
+    printf(" |  ");
+    for (size_t i = 0; i < start->index; i++) {
+        printf(" ");
+    }
+    for (size_t i = start->index; i < end->index + end->length; i++) {
+        printf("^");
+    }
+    printf(" <-- at %lu:%lu - %lu:%lu\n",
+            start->line, start->column,
+            end->line, end->column);
+    printf(" |  %s\n", error->message);
 }
-
 
 int repl_worker(char *line, void *arg) {
     (void) arg;
@@ -107,7 +124,15 @@ int repl_worker(char *line, void *arg) {
     stmt = sea_parse_stmt(&parser);
 
     if (stmt) {
-        if (sea_stmt_visit_error(stmt, stmt_visit_err)) {
+        vec_sea_error_t errors;
+        vec_sea_error_init(errors);
+        sea_stmt_collect_errors(stmt, errors);
+        if (vec_sea_error_size(errors) > 0) {
+            printf("found errors in stmt!\n");
+            for (size_t i = 0; i < vec_sea_error_size(errors); i++) {
+                sea_error_t *error = vec_sea_error_get(errors, i);
+                display_error(line, error);
+            }
             defer_return(-1);
         }
 
@@ -148,7 +173,21 @@ int repl(int argc, char **argv) {
     (void) argc;
     (void) argv;
 
-	return simple_repl(stdin, 1024, repl_worker, NULL);
+    struct mallinfo2 info1;
+    info1 = mallinfo2();
+    printf("hblkind = %lu\n", info1.hblkhd);
+    printf("uordblks = %lu\n", info1.uordblks);
+
+	int out = simple_repl(stdin, 1024, repl_worker, NULL);
+
+    struct mallinfo2 info;
+    info = mallinfo2();
+    printf("hblkind = %lu\n", info.hblkhd);
+    printf("  %lu\n", info.hblkhd - info1.hblkhd);
+    printf("uordblks = %lu\n", info.uordblks);
+    printf("  %lu\n", info.uordblks - info1.uordblks);
+
+    return out;
 }
 
 

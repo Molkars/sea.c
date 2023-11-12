@@ -68,12 +68,16 @@ typedef struct sea_error_t {
 void sea_error_print(sea_error_t *error);
 void sea_error_free(sea_error_t *error);
 
+#define VECTOR_TYPE sea_error_t *
+#define VECTOR_NAME sea_error
+#include "vec.h"
+
 typedef struct sea_type_lit {
     sea_token *token;
 } sea_type_lit;
 
-int sea_parse_type_lit(sea_parser *parser, sea_type_lit *out);
-void sea_type_lit_free(sea_type_lit item);
+sea_type_lit *sea_parse_type_lit(sea_parser *parser);
+void sea_type_lit_free(sea_type_lit *item);
 
 typedef enum sea_expr_type {
     SEA_EXPR_INT,
@@ -140,10 +144,10 @@ typedef enum sea_stmt_type {
     SEA_STMT_IF,
     SEA_STMT_FOR,
     SEA_STMT_WHILE,
+    SEA_STMT_VAR,
 
     // Psuedo-Statements
-    SEA_STMT_CALL,
-    SEA_STMT_ASSIGN,
+    SEA_STMT_EXPR,
 
     SEA_STMT_ERROR,
 } sea_stmt_type;
@@ -156,7 +160,7 @@ typedef struct sea_stmt {
 
 sea_stmt *sea_parse_stmt(sea_parser *parser);
 void sea_stmt_free(sea_stmt *stmt);
-void sea_stmt_collect_errors(sea_stmt *stmt, vec_sea_error_t vec);
+void sea_stmt_collect_errors(const sea_stmt *stmt, vec_sea_error_t vec);
 
 #define VECTOR_TYPE sea_stmt *
 #define VECTOR_NAME sea_stmt
@@ -176,6 +180,30 @@ typedef struct sea_stmt_block {
 } sea_stmt_block;
 
 void sea_stmt_block_free(sea_stmt_block *stmt);
+
+typedef struct sea_stmt_for {
+    sea_stmt *initializer;
+    sea_expr *condition;
+    sea_expr *incrementer;
+    sea_stmt *body;
+} sea_stmt_for;
+
+void sea_stmt_for_free(sea_stmt_for *stmt);
+
+typedef struct sea_stmt_while {
+    sea_expr *condition;
+    sea_stmt *body;
+} sea_stmt_while;
+
+void sea_stmt_while_free(sea_stmt_while *stmt);
+
+typedef struct sea_stmt_var {
+    sea_type_lit *type;
+    sea_token *name;
+    sea_expr *value;
+} sea_stmt_var;
+
+void sea_stmt_var_free(sea_stmt_var *stmt);
 
 /// AST:DECL
 
