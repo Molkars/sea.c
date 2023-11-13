@@ -244,7 +244,6 @@ typedef struct sea_decl_extern {
     vec_sea_func_param_t params;
 } sea_decl_extern;
 
-sea_decl *sea_parse_extern(sea_parser *parser);
 void sea_decl_extern_free(sea_decl_extern *decl);
 
 typedef struct sea_decl_function {
@@ -254,17 +253,11 @@ typedef struct sea_decl_function {
     sea_stmt body;
 } sea_decl_function;
 
-sea_decl *sea_parse_function(sea_parser *parser);
 void sea_decl_function_free(sea_decl_function *decl);
 
 typedef struct sea_decl_global {
-    sea_type_lit *type;
-    sea_token *name;
-    sea_expr *value;
-} sea_decl_global;
 
-sea_decl *sea_parse_global(sea_parser *parser);
-void sea_decl_global_free(sea_decl_global *decl);
+} sea_decl_global;
 
 /// AST:PROGRAM
 
@@ -272,9 +265,7 @@ typedef struct sea_program {
     vec_sea_decl_t decls;
 } sea_program;
 
-sea_program *sea_parse_program(sea_parser *parser);
-
-void sea_program_free(sea_program *program);
+int sea_parse_program(sea_parser *parser, sea_program *out);
 
 #endif // SEA_H
 

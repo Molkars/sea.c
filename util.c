@@ -71,6 +71,7 @@ int simple_repl(FILE *stream, size_t cap, int callback(char *, void*), void *arg
 		if (i < cap - 1) {
 			int result = callback(line, args);
 			if (result != -1) {
+                free(buffer);
 				return result;
 			}
 

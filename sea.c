@@ -892,7 +892,18 @@ sea_stmt *sea_parse_block_stmt(sea_parser *parser) {
 
         vec_sea_stmt_append(stmt->inner, item);
 
-        if (!sea_parser_match(parser, ";")) {
+        if (item->error) {
+            while (sea_parser_more(parser)) {
+                if (sea_parser_match(parser, ";")) {
+                    sea_parser_adv(parser);
+                    break;
+                } else if (sea_parser_match(parser, "}")) {
+                    break;
+                } else {
+                    sea_parser_adv(parser);
+                }
+            }
+        } else if (!sea_parser_match(parser, ";")) {
             break;
         } else {
             sea_parser_adv(parser);
@@ -1275,9 +1286,185 @@ void sea_stmt_collect_errors(const sea_stmt *item, vec_sea_error_t vec) {
     }
 }
 
+// DECL
 
-#undef SEA_ERROR
-#undef SEA_EXPECT
 
-#undef SEA_ERROR
-#undef SEA_EXPECT
+int sea_parse_func_param(sea_parser *parser, sea_func_param *param) {
+    sea_type_lit *type = sea_parse_type_lit(parser);
+    if (!type) return 0;
+
+    param->type = type;
+
+    if (sea_parser_match_word(parser)) {
+        param->name = sea_parser_adv(parser);
+    }
+
+    return 1;
+}
+
+sea_decl *sea_parse_extern(sea_parser *parser) {
+    if (!sea_parser_match(parser, "extern")) {
+        return NULL;
+    }
+    sea_parser_adv(parser);
+
+    sea_decl_extern *decl = malloc(sizeof(sea_decl_extern));
+    decl->type = NULL;
+    decl->name = NULL;
+    vec_sea_func_param_init(decl->params);
+
+    sea_decl *out = malloc(sizeof(sea_decl));
+    out->type = SEA_DECL_EXTERN;
+    out->item = decl;
+    out->error = NULL;
+
+    decl->type = sea_parse_type_lit(parser);
+    if (!decl->type) {
+        sea_token *token = sea_parser_adv(parser);
+        out->error = sea_make_error(
+                "Expected return-type after 'extern' keyword!",
+                token, token);
+        return out
+    }
+
+    if (!sea_parser_match_word(parser)) {
+        sea_token *token = sea_parser_adv(parser);
+        out->error = sea_make_error(
+                "Expected function name after extern return-type",
+                token, token);
+        return out;
+    }
+    sea_parser_adv(parser);
+
+    if (!sea_parser_match(parser, "(")) {
+        sea_token *token = sea_parser_adv(parser);
+        out->error = sea_make_error(
+                "Expected '(' after extern function name",
+                token, token);
+        return out;
+    }
+    sea_parser_adv(parser);
+
+    sea_func_param param;
+    while (sea_parser_more(parser) && !sea_parser_match(parser, ")")) {
+        if (!sea_parse_func_param(parser, &param)) {
+            sea_token *token = sea_parser_adv(parser);
+            out->error = sea_make_error("Expected function parameter",
+                    token, token);
+            return out;
+        }
+
+        if (sea_parser_match(parser, ",")) {
+            sea_parser_adv(parser);
+        } else {
+            break;
+        }
+    }
+
+    if (!sea_parser_match(parser, ")")) {
+        sea_token *token = sea_parser_adv(parser);
+        out->error = sea_make_error(
+                "Expected ')' after extern function params",
+                token, token);
+        return out;
+    }
+    sea_parser_adv(parser);
+
+    if (!sea_parser_match(parser, ";")) {
+        sea_token *token = sea_parser_adv(parser);
+        out->error = sea_make_error(
+                "Expected ';' after 'extern' function declaration",
+                token, token);
+        return out;
+    }
+    sea_parser_adv(parser);
+
+    return out;
+}
+
+sea_decl *sea_parse_function(sea_parser *parser) {
+    sea_type_lit *type = sea_parse_type_lit(parser);
+    if (!type) {
+        return NULL;
+    }
+
+    sea_decl_function *decl = malloc(sizeof(sea_decl_function));
+    decl->type = type;
+    decl->name = NULL;
+    vec_sea_func_param_init(decl->params);
+    decl->body = NULL;
+
+    sea_decl *out = malloc(sizeof(sea_decl));
+    out->type = SEA_DECL_FUNCTION;
+    out->item = decl;
+    out->error = NULL;
+
+    if (!sea_parser_match_word(parser)) {
+        sea_token *token = sea_parser_adv(parser);
+        out->error = sea_make_error(
+                "Expected function name after function return-type",
+                token, token);
+        return out;
+    }
+    sea_parser_adv(parser);
+
+    if (!sea_parser_match(parser, "(")) {
+        sea_token *token = sea_parser_adv(parser);
+        out->error = sea_make_error(
+                "Expected '(' after extern function name",
+                token, token);
+        return out;
+    }
+    sea_parser_adv(parser);
+
+    sea_func_param param;
+    while (sea_parser_more(parser) && !sea_parser_match(parser, ")")) {
+        if (!sea_parse_func_param(parser, &param)) {
+            sea_token *token = sea_parser_adv(parser);
+            out->error = sea_make_error("Expected function parameter",
+                    token, token);
+            return out;
+        }
+
+        if (sea_parser_match(parser, ",")) {
+            sea_parser_adv(parser);
+        } else {
+            break;
+        }
+    }
+
+    if (!sea_parser_match(parser, ")")) {
+        sea_token *token = sea_parser_adv(parser);
+        out->error = sea_make_error(
+                "Expected ')' after extern function params",
+                token, token);
+        return out;
+    }
+    sea_parser_adv(parser);
+}
+
+sea_decl *sea_parse_global(sea_parser *parser) {
+
+}
+
+sea_decl *sea_parse_decl(sea_parser *parser) {
+
+}
+
+void sea_decl_extern_free(sea_decl_extern *decl);
+void sea_decl_function_free(sea_decl_function *decl);
+void sea_decl_global_free(sea_decl_global *decl);
+void sea_decl_free(sea_decl *decl);
+
+// PROGRAM
+
+sea_program *sea_parse_program(sea_parser *parser) {
+    return NULL;
+}
+
+void sea_program_free(sea_program *program) {
+    if (program) {
+
+    }
+}
+
