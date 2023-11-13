@@ -1444,11 +1444,66 @@ sea_decl *sea_parse_function(sea_parser *parser) {
 }
 
 sea_decl *sea_parse_global(sea_parser *parser) {
+    sea_type_lit *type = sea_parse_type_lit(parser);
+    if (!type) {
+        return NULL;
+    }
 
+    sea_decl_global *decl = malloc(sizeof(sea_decl_global));
+    decl->type = type;
+    decl->name = NULL;
+    decl->value = NULL;
+
+    sea_decl *out = malloc(sizeof(sea_decl));
+    out->type = SEA_DECL_GLOBAL;
+    out->item = decl;
+    out->error = NULL;
+
+    if (!sea_parser_match_word(parser)) {
+        sea_token *token = sea_parser_adv(parser);
+        out->error = sea_make_error(
+                "Expected global name",
+                token, token);
+        return out;
+    }
+    decl->name = sea_parser_adv(parser);
+
+    if (sea_parser_match(parser, "=")) {
+        sea_parser_adv(parser);
+
+        sea_token *token = sea_parser_peek(parser);
+        out->value = sea_parse_expr(parser);
+        if (!out->value) {
+            out->error = sea_make_error(
+                    "Expected expression after '=' in variable global",
+                    token, sea_parser_adv(parser));
+            return out;
+        }
+    }
+
+    if (!sea_parser_match(parser, ";")) {
+        sea_token *token = sea_parser_adv(parser);
+        out->error = sea_make_error(
+                "Expected ';' after global variable",
+                token, token);
+        return out;
+    }
+
+    return out;
 }
 
 sea_decl *sea_parse_decl(sea_parser *parser) {
+    sea_decl *out;
 
+    if ((out = sea_parse_extern(parser))) {
+        return out;
+    }
+
+    if (sea_parser_peekahead(parser, 3, "(")) {
+        return sea_parse_function(parser);
+    } else {
+        return sea_parse_global(parser);
+    }
 }
 
 void sea_decl_extern_free(sea_decl_extern *decl);
