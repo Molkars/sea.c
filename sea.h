@@ -208,12 +208,15 @@ void sea_stmt_var_free(sea_stmt_var *stmt);
 /// AST:DECL
 
 typedef struct sea_func_param {
-    sea_type_lit type;
+    sea_type_lit *type;
     sea_token *name;
 } sea_func_param;
 
+void sea_func_param_free(sea_func_param param);
+
 #define VECTOR_TYPE sea_func_param
 #define VECTOR_NAME sea_func_param
+#define VECTOR_FREE sea_func_param_free
 #include "vec.h"
 
 int sea_parse_func_param(sea_parser *parser, sea_func_param *out);
@@ -228,6 +231,7 @@ typedef enum sea_decl_type {
 typedef struct sea_decl {
     sea_decl_type type;
     void *item;
+	sea_error_t *error;
 } sea_decl;
 
 sea_decl *sea_parse_decl(sea_parser *parser);
@@ -239,7 +243,7 @@ void sea_decl_free(sea_decl *decl);
 #include "vec.h"
 
 typedef struct sea_decl_extern {
-    sea_type_lit type;
+    sea_type_lit *type;
     sea_token *name;
     vec_sea_func_param_t params;
 } sea_decl_extern;
@@ -248,10 +252,10 @@ sea_decl *sea_parse_extern(sea_parser *parser);
 void sea_decl_extern_free(sea_decl_extern *decl);
 
 typedef struct sea_decl_function {
-    sea_decl_type type;
+    sea_type_lit *type;
     sea_token *name;
     vec_sea_func_param_t params;
-    sea_stmt body;
+    sea_stmt *body;
 } sea_decl_function;
 
 sea_decl *sea_parse_function(sea_parser *parser);
