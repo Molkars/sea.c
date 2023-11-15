@@ -49,6 +49,28 @@ typedef struct sea_parser {
     size_t index;
 } sea_parser;
 
+typedef struct {
+	scope_entry *first;
+	scope_entry *last;
+	scope *parent;
+} sea_scope;
+
+typedef struct {
+	char *name;
+	sea_token *type;
+	scope_entry *next;
+} sea_scope_entry;
+
+void sea_scope_init(sea_scope *out);
+void sea_scope_free(sea_scope *scope);
+void sea_scope_push(sea_scope *scope);
+void sea_scope_pop(sea_scope *scope);
+sea_scope_entry *sea_scope_get(const sea_scope *scope, const char *name);
+void sea_scope_set(sea_scope *scope, const char *name, const sea_token *tok);
+
+void sea_scope_entry_init(sea_scope_entry *entry);
+void sea_scope_entry_free(sea_scope_entry *entry);
+sea_token *sea_scope_entry_get(const sea_scope_entry *entry, const char *name);
 
 int sea_parser_init(sea_parser *parser, sea_tokens *tokens);
 
